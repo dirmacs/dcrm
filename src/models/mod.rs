@@ -70,6 +70,9 @@ pub enum DealStage {
     Negotiation,
     Won,
     Lost,
+    DsprintSubmitted,
+    DsprintActivated,
+    FirstAgentRun,
 }
 
 impl DealStage {
@@ -81,6 +84,9 @@ impl DealStage {
             DealStage::Negotiation,
             DealStage::Won,
             DealStage::Lost,
+            DealStage::DsprintSubmitted,
+            DealStage::DsprintActivated,
+            DealStage::FirstAgentRun,
         ]
     }
 
@@ -101,6 +107,9 @@ impl DealStage {
             DealStage::Negotiation => "Negotiation",
             DealStage::Won => "Won",
             DealStage::Lost => "Lost",
+            DealStage::DsprintSubmitted => "dsprint_submitted",
+            DealStage::DsprintActivated => "dsprint_activated",
+            DealStage::FirstAgentRun => "first_agent_run",
         }
     }
 
@@ -112,6 +121,9 @@ impl DealStage {
             DealStage::Negotiation => "#ec4899",
             DealStage::Won => "#10b981",
             DealStage::Lost => "#ef4444",
+            DealStage::DsprintSubmitted => "#6366f1",
+            DealStage::DsprintActivated => "#8b5cf6",
+            DealStage::FirstAgentRun => "#0ea5e9",
         }
     }
 
@@ -123,6 +135,9 @@ impl DealStage {
             DealStage::Negotiation => "badge-negotiation",
             DealStage::Won => "badge-won",
             DealStage::Lost => "badge-lost",
+            DealStage::DsprintSubmitted => "badge-dsprint-submitted",
+            DealStage::DsprintActivated => "badge-dsprint-activated",
+            DealStage::FirstAgentRun => "badge-first-agent-run",
         }
     }
 }
@@ -144,6 +159,7 @@ pub struct Deal {
     pub probability: u8,
     pub expected_close: Option<DateTime<Utc>>,
     pub notes: Option<String>,
+    pub pipeline: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -161,6 +177,7 @@ impl Deal {
             probability: 10,
             expected_close: None,
             notes: None,
+            pipeline: "manual_sales".to_string(),
             created_at: now,
             updated_at: now,
         }
