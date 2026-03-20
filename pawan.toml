@@ -1,0 +1,8 @@
+model = "moonshotai/kimi-k2.5"
+temperature = 0.6
+
+[mcp.eruka]
+command = "/opt/eruka/target/release/eruka-mcp"
+args = ["--transport", "stdio", "--user-id", "63cca910-aff3-48b8-bb32-e0cdcd5f9a2e"]
+env = { DATABASE_URL = "postgres://dirmacs:2ab91004d735521aa189e446b0344aca@localhost/eruka" }
+

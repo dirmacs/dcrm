@@ -25,3 +25,7 @@ dist/
 
 # Generated Tailwind CSS
 assets/tailwind.css
+
+# Environment files
+.env
+.env.*
