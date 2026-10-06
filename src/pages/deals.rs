@@ -65,14 +65,7 @@ fn PipelineStat(label: &'static str, value: String) -> Element {
 fn PipelineColumn(stage: DealStage, deals: Vec<Deal>) -> Element {
     let total_value: f64 = deals.iter().map(|d| d.value).sum();
 
-    let dot_color = match stage {
-        DealStage::Lead => "bg-blue-500",
-        DealStage::Qualified => "bg-violet-500",
-        DealStage::Proposal => "bg-amber-500",
-        DealStage::Negotiation => "bg-pink-500",
-        DealStage::Won => "bg-emerald-500",
-        DealStage::Lost => "bg-red-500",
-    };
+    let dot_color = stage.tailwind_bg();
 
     rsx! {
         div { class: "min-w-[280px] w-[280px] bg-dark-800 border border-zinc-800 rounded-xl flex flex-col max-h-full",
@@ -178,14 +171,7 @@ fn DealQuickActions(deal_id: String, current_stage: DealStage) -> Element {
 
                     for stage in next_stages {
                         {
-                            let dot_color = match stage {
-                                DealStage::Lead => "bg-blue-500",
-                                DealStage::Qualified => "bg-violet-500",
-                                DealStage::Proposal => "bg-amber-500",
-                                DealStage::Negotiation => "bg-pink-500",
-                                DealStage::Won => "bg-emerald-500",
-                                DealStage::Lost => "bg-red-500",
-                            };
+                            let dot_color = stage.tailwind_bg();
 
                             rsx! {
                                 div {

@@ -1,0 +1,27 @@
+# Rust build output (dwarfs source on this estate).
+target/
+**/target/
+
+# Dioxus build output.
+dist/
+
+# VCS / CI metadata.
+.git/
+.gitignore
+.github/
+
+# Editor / OS cruft.
+*.swp
+.DS_Store
+.idea/
+.vscode/
+
+# Docker self-reference.
+Dockerfile
+.dockerignore
+docker-compose*.yml
+compose*.yml
+
+# NOTE: the prebuilt `dx` binary (build context for the Dockerfile) must NOT
+# be ignored. It is intentionally unignored below.
+!dx

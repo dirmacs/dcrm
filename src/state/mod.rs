@@ -109,6 +109,10 @@ pub fn update_deal_stage(data: &mut Signal<AppData>, deal_id: &str, new_stage: D
             DealStage::Negotiation => 75,
             DealStage::Won => 100,
             DealStage::Lost => 0,
+            // Dsprint pipeline stages have no established close-probability yet.
+            DealStage::DsprintSubmitted => 60,
+            DealStage::DsprintActivated => 80,
+            DealStage::FirstAgentRun => 90,
         };
     }
     let _ = save_data(&data.read());

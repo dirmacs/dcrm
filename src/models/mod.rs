@@ -127,6 +127,23 @@ impl DealStage {
         }
     }
 
+    /// Tailwind background class for this stage, derived from `color()` so it
+    /// stays exhaustive when new variants are added. Single source of truth
+    /// for stage -> colour on pages.
+    pub fn tailwind_bg(&self) -> &str {
+        match self.color() {
+            "#3b82f6" => "bg-blue-500",
+            "#8b5cf6" => "bg-violet-500",
+            "#f59e0b" => "bg-amber-500",
+            "#ec4899" => "bg-pink-500",
+            "#10b981" => "bg-emerald-500",
+            "#ef4444" => "bg-red-500",
+            "#6366f1" => "bg-indigo-500",
+            "#0ea5e9" => "bg-sky-500",
+            _ => "bg-zinc-500",
+        }
+    }
+
     pub fn badge_class(&self) -> &str {
         match self {
             DealStage::Lead => "badge-lead",

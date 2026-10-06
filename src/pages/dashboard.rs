@@ -176,14 +176,7 @@ fn PipelineStageRow(stage: DealStage, count: usize, value: f64) -> Element {
     let total_pipeline = 600000.0;
     let percentage = ((value / total_pipeline) * 100.0).min(100.0);
 
-    let color_class = match stage {
-        DealStage::Lead => "bg-blue-500",
-        DealStage::Qualified => "bg-violet-500",
-        DealStage::Proposal => "bg-amber-500",
-        DealStage::Negotiation => "bg-pink-500",
-        DealStage::Won => "bg-emerald-500",
-        DealStage::Lost => "bg-red-500",
-    };
+    let color_class = stage.tailwind_bg();
 
     rsx! {
         div { class: "py-3 border-b border-zinc-800 last:border-b-0",
