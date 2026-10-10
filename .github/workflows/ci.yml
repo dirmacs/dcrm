@@ -1,0 +1,227 @@
+# dcrm CI — coverage (cargo-tarpaulin) + complexity (cargo-crap) gates.
+#
+# One job, one coverage run, two gates fed by it: tarpaulin runs the whole
+# suite under instrumentation (it exits non-zero on any test failure, so the
+# coverage run IS the test run) and writes lcov.info, which cargo-crap then
+# scores. cargo-crap never runs tests itself — it parses source with syn and
+# reads the LCOV, scoring CRAP(m) = CC²·(1−cov)³ + CC. Without the coverage
+# feed every function scores cov=0 and CRAP collapses to CC³+CC, so the
+# complexity gate would measure nothing; that is why the two live in one job.
+# dcrm ships no `#[test]` at all, so cov is ~0 either way and the CRAP numbers
+# below were measured without an LCOV feed (cov=0) — identical to what this
+# job feeds the gate.
+#
+# Public repo, so GitHub-hosted ubuntu-latest works: private dirmacs repos get
+# zero-step admission refusal there (steps=0, empty runner_name, ~3s failure),
+# but this repo is public and follows the estate public-repo convention.
+# x86_64 runner: the tool install below selects the tarball arch by uname.
+#
+# dcrm is a dioxus 0.7 NATIVE DESKTOP app (WebKitGTK renderer), so the crate
+# tree pulls wry/tao/glib-sys and the build needs the system dev packages that
+# the repo's own builder Dockerfile installs — mirrored verbatim in the apt
+# step below (same set: libwebkit2gtk-4.1-dev, libgtk-3-dev, libappindicator3-dev,
+# librsvg2-dev, pkg-config). No database: dcrm is a local-first desktop CRM
+# (dirs-based storage), and its test suite (0 tests) touches no DB.
+#
+# Tool pinning: both tools install from per-arch release tarballs at exact
+# versions and each version is asserted — two runs cannot disagree because one
+# host happened to have a newer cargo-crap. Versions are crates.io
+# max_stable_version at authoring: tarpaulin 0.37.5, cargo-crap 0.6.1.
+#
+# Engine choice is MEASURED, not preferred. The dirmacs-ci fleet containers
+# are sysbox-confined and tarpaulin's ptrace engine fails there with
+#   "ASLR disable failed: EPERM: Operation not permitted"
+# (measured on dirmacs/skywalkers run 38064108686). `auto` would fall back
+# silently; `Llvm` is the documented llvm-profdata path and is what the
+# llvm-tools-preview component above installs. It is also kept for estate-wide
+# consistency even though the ubuntu-latest runners used here could allow
+# ptrace (public repo, unsandboxed GitHub-hosted VM).
+#
+# No rust-toolchain.toml in this repo, so the toolchain step installs stable
+# explicitly via dtolnay/rust-toolchain@stable (pinning to a floating `stable`
+# here is deliberate: this crate has no MSRV promise; the action installs
+# whatever stable is current, which is >= edition 2024's requirement).
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Read-only, and no job needs more: nothing here pushes, tags, publishes, or
+# reads a secret. Least privilege so a compromised step still cannot write to
+# the repository.
+permissions:
+  contents: read
+
+# A superseded run's green tick is worthless: when a branch is pushed again,
+# cancel the in-flight run for the same ref rather than let it race. Keyed on
+# the ref, so PR runs for different PRs never cancel each other.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  coverage-crap:
+    name: coverage + CRAP
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      # Repo-specific constants, measured on the first run — see the PR that
+      # added this job for the numbers and the ratchet.
+      #
+      # Measured with cargo-crap 0.6.1 (no LCOV feed, cov=0 — the repo has no
+      # tests): 93 functions scored; worst CRAP 110.0, tied three times:
+      #   DealStage::display_name / ::color / ::badge_class
+      #   (src/models/mod.rs:102/116/130, CC 10, cov 0).
+      # Gate discrimination proven locally: --fail-above rc=1 at thresholds
+      # 100 and 109 (below the measured max), rc=0 at 110 and 121.
+      # Ceiling = measured max + ~10% headroom.
+      #
+      # No COVERAGE_FLOOR var on purpose: the repo has zero tests, so the
+      # measured line coverage is ~0.00% and any floor > 0 would fail every PR
+      # for a pre-existing reason unrelated to the PR. The coverage number is
+      # published in the run summary instead; the floor activates (at
+      # measured −3pp) once the first test lands — documented in the PR body.
+      CRAP_THRESHOLD: "121"
+    steps:
+      - name: checkout
+        # Pinned to an immutable commit SHA (resolved from the v5.1.0 tag),
+        # never the moving `@v5` tag — same commit the proven skywalkers job
+        # uses.
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: install dioxus desktop system build deps
+        # Same dependency set the repo's own builder Dockerfile installs:
+        # dioxus 0.7 desktop renders through WebKitGTK, and glib-sys/wry build
+        # scripts resolve these via pkg-config. Without them the build fails
+        # at "The system library `glib-2.0` required by crate `glib-sys` was
+        # not found" (measured on the dirmacs build host). Ubuntu runners have
+        # passwordless sudo; a C toolchain is preinstalled.
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            pkg-config \
+            ca-certificates
+
+      - name: install toolchain (llvm-tools-preview)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          # llvm-tools-preview backs the llvm engine (the documented ptrace
+          # fallback) and any llvm-profdata/llvm-cov invocation.
+          components: llvm-tools-preview
+
+      - name: generate the gitignored tailwind asset
+        # assets/tailwind.css is GENERATED and gitignored (see .gitignore:
+        # "# Generated Tailwind CSS / assets/tailwind.css"): the repo's own
+        # path is `dx build`, which materializes it from the root tailwind.css
+        # entry point before compiling. `asset!("/assets/tailwind.css")` in
+        # src/main.rs:9 is compile-time, so a bare `cargo tarpaulin` fails with
+        # "Asset at /assets/tailwind.css doesn't exist" (measured on the first
+        # run of this job). Node/npm are preinstalled on ubuntu-latest; the
+        # Tailwind v4 CLI resolves its framework relative to the input file, so
+        # the install must live in the workspace. The generated file is
+        # gitignored and ephemeral — nothing commits it, and the CRAP gate
+        # scores src/ only. @source scans src/** as in the dx path.
+        run: |
+          set -euo pipefail
+          npm i --no-audit --no-fund --loglevel=error tailwindcss @tailwindcss/cli
+          ./node_modules/.bin/tailwindcss -i tailwind.css -o assets/tailwind.css
+
+      - name: Cargo.lock is committed, not generated
+        # --locked below exits non-zero if the lockfile is missing or would have
+        # to change, so the dependency set can only move when a human commits a
+        # reviewed lockfile. That mechanism needs the file to exist first.
+        run: git ls-files --error-unmatch Cargo.lock
+
+      - name: install pinned coverage + CRAP tools
+        run: |
+          set -euo pipefail
+          TARPAULIN_VERSION=0.37.5
+          CRAP_VERSION=0.6.1
+          case "$(uname -m)" in
+            aarch64) arch=aarch64 ;;
+            x86_64)  arch=x86_64 ;;
+            *) echo "::error::unsupported architecture $(uname -m)"; exit 1 ;;
+          esac
+          mkdir -p "$HOME/.local/bin"
+          # $GITHUB_PATH only affects LATER steps, not this one -- the version
+          # assertions below run here, so the dir must be on PATH inside this
+          # same script.
+          export PATH="$HOME/.local/bin:$PATH"
+          curl -sSLf "https://github.com/xd009642/tarpaulin/releases/download/${TARPAULIN_VERSION}/cargo-tarpaulin-${arch}-unknown-linux-gnu.tar.gz" \
+            | tar xz -C "$HOME/.local/bin"
+          curl -sSLf "https://github.com/minikin/cargo-crap/releases/download/v${CRAP_VERSION}/cargo-crap-${arch}-unknown-linux-gnu.tar.gz" \
+            | tar xz -C "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          cargo-tarpaulin --version | grep -qx "tarpaulin ${TARPAULIN_VERSION}"
+          cargo-crap --version | grep -qx "cargo-crap ${CRAP_VERSION}"
+
+      - name: coverage gate (tarpaulin, llvm engine)
+        # single-package repo (no workspace members), so no --workspace and
+        # `--path src` on the CRAP side scores every source file under src.
+        # NO --fail-under here, deliberately: dcrm ships zero tests, so the
+        # coverage line is ~0.00% and shipping floor>0 would install a gate
+        # that fails every PR for a reason the PR did not cause. Tarpaulin
+        # still exits non-zero on any test failure, so the run reddens the
+        # moment a broken test lands, and the number is published in the
+        # summary below. Activation rule once tests exist: floor = measured
+        # −3pp (estate variance margin), stated in the PR that adds the first
+        # test. (First run of this job failed before reaching the gate: the
+        # compile-time asset! needed the gitignored assets/tailwind.css,
+        # generated by the step above — that build failure was a missing
+        # generated artifact, not a gate verdict.)
+        run: >-
+          cargo tarpaulin --engine Llvm --locked
+          --out Lcov --timeout 300
+
+      - name: CRAP gate (fed by this run's coverage)
+        # cargo-crap parses source with syn and reads lcov.info; with the
+        # repo's zero tests every cov is 0 and CRAP = CC³+CC, matching the
+        # local measurement the threshold was taken from. One expected note:
+        # cargo-crap may log that the LCOV matched no covered lines — that is
+        # the zero-test reality, not an error. No --exclude is needed: the
+        # entry points src/main.rs score CRAP 2.0 (main:21, App:26) — contrast
+        # git-sync, whose main scored 930 and had to be excluded.
+        # Threshold 121 = measured max
+        # 110.0 + ~10% headroom; --fail-above reddens when any function
+        # exceeds it (proven: rc=1 at 100/109, rc=0 at 110/121).
+        run: >-
+          cargo crap --lcov lcov.info --path src
+          --threshold "$CRAP_THRESHOLD" --fail-above
+          --format json > crap.json
+
+      - name: write the run summary
+        if: always()
+        run: |
+          set -uo pipefail
+          {
+            echo "### Coverage + CRAP gate"
+            echo
+            if [ -f lcov.info ]; then
+              awk -F: '/^LH:/{lh+=$2} /^LF:/{lf+=$2} END {if (lf>0) printf "Line coverage: %.2f%% (%d/%d lines)\n", 100*lh/lf, lh, lf; else print "Line coverage: no LCOV data"}' lcov.info
+            else
+              echo "Line coverage: no lcov.info (the coverage run did not complete)"
+            fi
+            if [ -f crap.json ]; then
+              # Shell-only parse: the fleet runner containers carry no python3,
+              # and a crashing summary must not redden a gate that passed.
+              vals=$(tr -d ' \n' < crap.json | grep -o '"crap":[0-9.]*' | cut -d: -f2)
+              if [ -n "$vals" ]; then
+                n=$(printf '%s\n' "$vals" | grep -c .)
+                worst=$(printf '%s\n' "$vals" | sort -g | tail -1)
+                echo "Functions scored: $n; worst CRAP: $worst; threshold $CRAP_THRESHOLD"
+              else
+                echo "WARNING: crap.json present but no entries parsed"
+              fi
+            else
+              echo "CRAP: no crap.json (the CRAP step did not complete)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
