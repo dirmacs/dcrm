@@ -72,6 +72,9 @@ fn PipelineColumn(stage: DealStage, deals: Vec<Deal>) -> Element {
         DealStage::Negotiation => "bg-pink-500",
         DealStage::Won => "bg-emerald-500",
         DealStage::Lost => "bg-red-500",
+        DealStage::DsprintSubmitted => "bg-indigo-500",
+        DealStage::DsprintActivated => "bg-violet-500",
+        DealStage::FirstAgentRun => "bg-sky-500",
     };
 
     rsx! {
@@ -185,6 +188,9 @@ fn DealQuickActions(deal_id: String, current_stage: DealStage) -> Element {
                                 DealStage::Negotiation => "bg-pink-500",
                                 DealStage::Won => "bg-emerald-500",
                                 DealStage::Lost => "bg-red-500",
+                                DealStage::DsprintSubmitted => "bg-indigo-500",
+                                DealStage::DsprintActivated => "bg-violet-500",
+                                DealStage::FirstAgentRun => "bg-sky-500",
                             };
 
                             rsx! {
