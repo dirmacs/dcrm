@@ -102,17 +102,7 @@ pub fn update_deal_stage(data: &mut Signal<AppData>, deal_id: &str, new_stage: D
         deal.updated_at = chrono::Utc::now();
 
         // Update probability based on stage
-        deal.probability = match new_stage {
-            DealStage::Lead => 10,
-            DealStage::Qualified => 25,
-            DealStage::Proposal => 50,
-            DealStage::Negotiation => 75,
-            DealStage::Won => 100,
-            DealStage::Lost => 0,
-            DealStage::DsprintSubmitted => 20,
-            DealStage::DsprintActivated => 40,
-            DealStage::FirstAgentRun => 60,
-        };
+        deal.probability = new_stage.default_probability();
     }
     let _ = save_data(&data.read());
 }
