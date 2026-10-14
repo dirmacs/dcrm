@@ -109,6 +109,9 @@ pub fn update_deal_stage(data: &mut Signal<AppData>, deal_id: &str, new_stage: D
             DealStage::Negotiation => 75,
             DealStage::Won => 100,
             DealStage::Lost => 0,
+            DealStage::DsprintSubmitted => 20,
+            DealStage::DsprintActivated => 40,
+            DealStage::FirstAgentRun => 60,
         };
     }
     let _ = save_data(&data.read());
