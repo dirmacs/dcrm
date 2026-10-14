@@ -140,6 +140,34 @@ impl DealStage {
             DealStage::FirstAgentRun => "badge-first-agent-run",
         }
     }
+
+    pub fn dot_color_class(&self) -> &'static str {
+        match self {
+            DealStage::Lead => "bg-blue-500",
+            DealStage::Qualified => "bg-violet-500",
+            DealStage::Proposal => "bg-amber-500",
+            DealStage::Negotiation => "bg-pink-500",
+            DealStage::Won => "bg-emerald-500",
+            DealStage::Lost => "bg-red-500",
+            DealStage::DsprintSubmitted => "bg-indigo-500",
+            DealStage::DsprintActivated => "bg-violet-500",
+            DealStage::FirstAgentRun => "bg-sky-500",
+        }
+    }
+
+    pub fn default_probability(&self) -> u8 {
+        match self {
+            DealStage::Lead => 10,
+            DealStage::Qualified => 25,
+            DealStage::Proposal => 50,
+            DealStage::Negotiation => 75,
+            DealStage::Won => 100,
+            DealStage::Lost => 0,
+            DealStage::DsprintSubmitted => 20,
+            DealStage::DsprintActivated => 40,
+            DealStage::FirstAgentRun => 60,
+        }
+    }
 }
 
 impl std::fmt::Display for DealStage {
